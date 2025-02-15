@@ -73,5 +73,12 @@ Steps:
 ```
 npm install
 npm run build
+npm start
+http://localhost:3000/
+
+
 aws s3 sync build/ s3://trackbalances-20250215113132-hostingbucket-dev
+
+Cloudfront URL:
+https://d31ptqdyzzczl0.cloudfront.net
 ```
