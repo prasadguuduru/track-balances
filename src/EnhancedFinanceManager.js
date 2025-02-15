@@ -11,25 +11,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/card';
 import { AlertCircle, CreditCard, Wallet, TrendingUp } from 'lucide-react';
 
-// Define a safe storage object that uses localStorage if available,
-// or a fallback in-memory storage if not.
-const safeStorage = (() => {
-  try {
-    const testKey = '__storage_test__';
-    window.localStorage.setItem(testKey, testKey);
-    window.localStorage.removeItem(testKey);
-    return window.localStorage;
-  } catch (error) {
-    console.warn('localStorage is not available; using fallback storage.');
-    let store = {};
-    return {
-      getItem: (key) => (key in store ? store[key] : null),
-      setItem: (key, value) => { store[key] = value; },
-      removeItem: (key) => { delete store[key]; },
-    };
-  }
-})();
-
 export default function EnhancedFinanceManager() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -59,11 +40,10 @@ export default function EnhancedFinanceManager() {
     return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
   };
 
-  // Read data from safeStorage (localStorage or fallback)
   useEffect(() => {
     try {
-      const loadedAccounts = JSON.parse(safeStorage.getItem('finance_accounts')) || [];
-      const loadedTransactions = JSON.parse(safeStorage.getItem('finance_transactions')) || [];
+      const loadedAccounts = JSON.parse(localStorage.getItem('finance_accounts')) || [];
+      const loadedTransactions = JSON.parse(localStorage.getItem('finance_transactions')) || [];
 
       const validatedAccounts = loadedAccounts.filter(
         account =>
@@ -79,20 +59,15 @@ export default function EnhancedFinanceManager() {
       setAccounts(validatedAccounts);
       setTransactions(validatedTransactions);
     } catch (error) {
-      console.error('Error loading data from storage:', error);
+      console.error('Error loading data:', error);
       setAccounts([]);
       setTransactions([]);
     }
   }, []);
 
-  // Write data to safeStorage (localStorage or fallback)
   useEffect(() => {
-    try {
-      safeStorage.setItem('finance_accounts', JSON.stringify(accounts));
-      safeStorage.setItem('finance_transactions', JSON.stringify(transactions));
-    } catch (error) {
-      console.error('Error saving data to storage:', error);
-    }
+    localStorage.setItem('finance_accounts', JSON.stringify(accounts));
+    localStorage.setItem('finance_transactions', JSON.stringify(transactions));
   }, [accounts, transactions]);
 
   const calculateBalance = (accountId, date = new Date()) => {
@@ -274,9 +249,7 @@ export default function EnhancedFinanceManager() {
                 className="flex justify-between items-center p-2 rounded bg-blue-50"
               >
                 <div>
-                  <p className="font-medium">
-                    {account?.name} - {transaction.details || transaction.category}
-                  </p>
+                  <p className="font-medium">{account?.name} - {transaction.details || transaction.category}</p>
                   <p className="text-sm text-blue-400">
                     {new Date(transaction.date).toLocaleDateString()}
                   </p>
