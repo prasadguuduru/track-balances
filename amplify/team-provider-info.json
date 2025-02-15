@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-trackbalances-dev-fcf7d-authRole",
+      "UnauthRoleArn": "arn:aws:iam::891377344574:role/amplify-trackbalances-dev-fcf7d-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::891377344574:role/amplify-trackbalances-dev-fcf7d-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-trackbalances-dev-fcf7d-deployment",
+      "UnauthRoleName": "amplify-trackbalances-dev-fcf7d-unauthRole",
+      "StackName": "amplify-trackbalances-dev-fcf7d",
+      "StackId": "arn:aws:cloudformation:us-east-1:891377344574:stack/amplify-trackbalances-dev-fcf7d/0a25c910-ebd3-11ef-a842-125efeaafd0d",
+      "AmplifyAppId": "dttcwbgl091zv"
+    },
+    "categories": {
+      "hosting": {
+        "S3AndCloudFront": {}
+      }
+    }
+  }
+}
