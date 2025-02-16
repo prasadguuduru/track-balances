@@ -19,11 +19,14 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prebuild": "cp config.$NODE_ENV.json public/config.json",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "tailwind": "tailwindcss init -p"
+    "tailwind": "tailwindcss init -p",
+    "local:deploy": "NODE_ENV=local npm run build && npm start",
+    "prod:deploy": "NODE_ENV=prod npm run build && aws s3 sync build/ s3://trackbalances-20250215113132-hostingbucket-dev"
   },
   "eslintConfig": {
     "extends": [

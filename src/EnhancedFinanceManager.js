@@ -272,9 +272,17 @@ export default function EnhancedFinanceManager() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">TrackBalances</h1>
           <button
-            onClick={() => logout({ returnTo: window.location.origin })}
-            className="px-4 py-2 rounded bg-[#4A154B] hover:bg-[#5A1B60] text-white"
-          >
+          onClick={() => {
+            // Remove any trailing slash from the returnTo URL
+            const returnTo = (window._env_.returnTo || window.location.href).replace(/\/$/, '');
+            console.log("Logging out, returnTo:", returnTo);
+            logout({
+              returnTo,
+              federated: true, // Ensures complete logout from SSO
+            });
+          }}
+          className="px-4 py-2 rounded bg-[#4A154B] hover:bg-[#5A1B60] text-white"
+        >
             Logout
           </button>
         </div>
