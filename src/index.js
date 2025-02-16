@@ -5,6 +5,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+
 // Fetch runtime configuration from /config.json
 fetch('/config.json')
   .then((res) => res.json())

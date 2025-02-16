@@ -6,7 +6,6 @@ import {
   Minimize2,
   MessageSquare,
   ChevronRight,
-  ChevronDown,
 } from 'lucide-react';
 
 const theme = {
@@ -29,11 +28,9 @@ const SUGGESTIONS = [
   "add transaction:"
 ];
 
-// Storage keys
 const ACCOUNTS_KEY = "myapp_finance_accounts";
 const TRANSACTIONS_KEY = "myapp_finance_transactions";
 
-// Initialize storage if missing
 if (!localStorage.getItem(ACCOUNTS_KEY)) {
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([]));
 }
@@ -41,13 +38,11 @@ if (!localStorage.getItem(TRANSACTIONS_KEY)) {
   localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
 }
 
-// Simulated API call
 const getChatResponse = async (userMessage, model) => {
   await new Promise(resolve => setTimeout(resolve, 1000));
   return `${model} response: ${userMessage}`;
 };
 
-// Data loading/saving
 const loadData = () => {
   const storedAccounts = localStorage.getItem(ACCOUNTS_KEY);
   const storedTransactions = localStorage.getItem(TRANSACTIONS_KEY);
@@ -61,7 +56,6 @@ const saveData = (accounts, transactions) => {
   localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
 };
 
-// Basic calculations
 const calculateBalance = (account, transactions, date = new Date()) => {
   const relevant = transactions.filter(
     t => t.accountId === account.id && new Date(t.date) <= date
@@ -100,7 +94,6 @@ const parseKeyValuePairs = (text) => {
   return obj;
 };
 
-// Renders a simple summary
 const BusinessCards = () => {
   const { totalBalance, creditUsed } = getBusinessMetrics();
   return (
@@ -117,7 +110,6 @@ const BusinessCards = () => {
   );
 };
 
-// Widget for adding an account
 const AddAccountWidget = ({ onClose }) => {
   const [name, setName] = useState('');
   const [accountType, setAccountType] = useState('debit');
@@ -155,7 +147,7 @@ const AddAccountWidget = ({ onClose }) => {
       </div>
     );
   }
-
+  
   return (
     <div className="p-4">
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -213,7 +205,6 @@ const AddAccountWidget = ({ onClose }) => {
   );
 };
 
-// Command handler
 const handleCommand = (trimmed) => {
   const lower = trimmed.toLowerCase();
   const { accounts, transactions } = loadData();
@@ -249,7 +240,6 @@ const handleCommand = (trimmed) => {
   return null;
 };
 
-// Main Chat Component
 export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
   const [windowState, setWindowState] = useState('bottom'); // 'bottom' | 'expanded' | 'side'
   const [messages, setMessages] = useState([]);
@@ -258,14 +248,12 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
   const [lastActivity, setLastActivity] = useState(Date.now());
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Inactivity auto-collapse
   useEffect(() => {
-    const inactivityTimeout = 300000; // 5 minutes
+    const inactivityTimeout = 300000;
     const timer = setInterval(() => {
       if (windowState === 'expanded' && Date.now() - lastActivity > inactivityTimeout) {
         setWindowState('bottom');
@@ -274,7 +262,6 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     return () => clearInterval(timer);
   }, [windowState, lastActivity]);
 
-  // Update lastActivity on user interactions
   const updateActivity = () => setLastActivity(Date.now());
   useEffect(() => {
     const events = ['mousedown', 'keydown', 'mousemove', 'touchstart'];
@@ -282,14 +269,11 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     return () => events.forEach(event => document.removeEventListener(event, updateActivity));
   }, []);
 
-  // Suggestions row (one-liner)
+  // Render suggestion tags as a one-liner with a label.
   const renderTagSuggestions = () => {
     if (messages.length > 0) {
       return (
-        <div 
-          className="flex items-center px-4" 
-          style={{ height: '24px', backgroundColor: theme.inputBackground, borderTop: `1px solid ${theme.border}` }}
-        >
+        <div className="flex items-center px-4" style={{ height: '24px' }}>
           <span className="text-xs text-gray-500 mr-2">Suggestions:</span>
           <div className="flex gap-2">
             {SUGGESTIONS.map((tag, index) => (
@@ -308,7 +292,6 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     return null;
   };
 
-  // Send message
   const handleSend = async () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
@@ -327,9 +310,7 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     setMessages(prev => [...prev, agentMsg]);
   };
 
-  // Render each message
   const renderMessage = (msg, idx) => {
-    // If the message has an <iframe> snippet, render it as HTML
     if (msg.text && msg.text.includes("<iframe")) {
       return (
         <div key={idx} className="mb-3">
@@ -345,14 +326,11 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     if (msg.component === 'AddAccountWidget') {
       return <AddAccountWidget key={idx} onClose={() => setMessages(prev => prev.filter(m => m !== msg))} />;
     }
-    // Default text message
     return (
       <div key={idx} className="mb-3">
         <div className="flex items-start gap-2">
-          <div 
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shrink-0"
-            style={{ backgroundColor: msg.sender === 'user' ? '#5E5E5E' : theme.primary }}
-          >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shrink-0"
+               style={{ backgroundColor: msg.sender === 'user' ? '#5E5E5E' : theme.primary }}>
             {msg.sender === 'user' ? 'U' : 'A'}
           </div>
           <div className="p-3 rounded-lg max-w-[80%]" style={{ backgroundColor: theme.messageBackground, color: theme.text }}>
@@ -366,7 +344,6 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     );
   };
 
-  // Container style based on windowState
   const getContainerStyles = () => {
     const baseStyles = "fixed transition-all duration-300 ease-in-out bg-white shadow-xl mx-[10%]";
     switch (windowState) {
@@ -381,7 +358,6 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
     }
   };
 
-  // If minimized to side
   if (windowState === 'side') {
     return (
       <div 
@@ -398,7 +374,7 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
 
   return (
     <div className={getContainerStyles()}>
-      {/* Grid layout: header (48px), messages area (1fr), bottom area (60px) */}
+      {/* Grid container: header (48px), messages (1fr), bottom (60px) */}
       <div style={{ height: '60vh', display: 'grid', gridTemplateRows: '48px 1fr 60px' }}>
         {/* Header */}
         <div className="px-3 py-2 flex justify-between items-center border-b" style={{ background: theme.headerGradient }}>
@@ -439,19 +415,17 @@ export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
             </button>
           </div>
         </div>
-
-        {/* Messages Area (scrollable) */}
+        {/* Messages Area */}
         <div className="overflow-y-auto p-4" style={{ backgroundColor: theme.background }}>
           {messages.map((msg, idx) => renderMessage(msg, idx))}
           <div ref={messagesEndRef} />
         </div>
-
-        {/* Bottom Area: 60px total, flex-col for suggestions row + input row */}
-        <div style={{ backgroundColor: theme.inputBackground, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column' }}>
-          {/* Suggestions row (24px) */}
+        {/* Bottom Fixed Area (Flex Column) */}
+        <div style={{ backgroundColor: theme.inputBackground, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', height: '60px' }}>
+          {/* Suggestions Row (24px) */}
           {renderTagSuggestions()}
-          {/* Input row (36px) */}
-          <div className="flex-none px-4" style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+          {/* Input Row (36px) */}
+          <div className="flex items-center px-4" style={{ height: '36px' }}>
             <div className="relative w-full h-full">
               <input
                 type="text"
