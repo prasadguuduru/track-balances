@@ -9,7 +9,6 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-// Instagram-inspired theme
 const theme = {
   primary: '#0095F6',
   secondary: '#262626',
@@ -20,34 +19,35 @@ const theme = {
   messageBackground: '#F7F7F7',
   inputBackground: '#FAFAFA',
   activeNowColor: '#4BB543',
-  avatarGradient: 'linear-gradient(45deg, #FEA04C, #F83A95, #8E47EB)',
   controlsBackground: '#E8F0FE',
   controlsHighlight: '#2374E1',
-  iconHover: '#F0F6FF'
 };
 
-// Namespaced keys (should match your dashboard)
+const SUGGESTIONS = [
+  "balance info",
+  "add account:",
+  "add transaction:"
+];
+
+// Storage keys
 const ACCOUNTS_KEY = "myapp_finance_accounts";
 const TRANSACTIONS_KEY = "myapp_finance_transactions";
 
-// Ensure keys are initialized if missing
-const initializeStorage = () => {
-  if (!localStorage.getItem(ACCOUNTS_KEY)) {
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(TRANSACTIONS_KEY)) {
-    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
-  }
-};
-initializeStorage();
+// Initialize storage if missing
+if (!localStorage.getItem(ACCOUNTS_KEY)) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([]));
+}
+if (!localStorage.getItem(TRANSACTIONS_KEY)) {
+  localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
+}
 
-// -------------------- Simulated API Call --------------------
+// Simulated API call
 const getChatResponse = async (userMessage, model) => {
   await new Promise(resolve => setTimeout(resolve, 1000));
   return `${model} response: ${userMessage}`;
 };
 
-// -------------------- Business Logic Functions --------------------
+// Data loading/saving
 const loadData = () => {
   const storedAccounts = localStorage.getItem(ACCOUNTS_KEY);
   const storedTransactions = localStorage.getItem(TRANSACTIONS_KEY);
@@ -61,6 +61,7 @@ const saveData = (accounts, transactions) => {
   localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
 };
 
+// Basic calculations
 const calculateBalance = (account, transactions, date = new Date()) => {
   const relevant = transactions.filter(
     t => t.accountId === account.id && new Date(t.date) <= date
@@ -87,7 +88,6 @@ const getBusinessMetrics = () => {
   return { totalBalance, creditUsed };
 };
 
-// -------------------- Helper: Parse Key-Value Pairs --------------------
 const parseKeyValuePairs = (text) => {
   const pairs = text.split(/[,;]/).map(part => part.trim());
   const obj = {};
@@ -100,18 +100,16 @@ const parseKeyValuePairs = (text) => {
   return obj;
 };
 
-// -------------------- Secure Component Rendering --------------------
-
-// Renders Total Balance and Credit Used cards
+// Renders a simple summary
 const BusinessCards = () => {
   const { totalBalance, creditUsed } = getBusinessMetrics();
   return (
     <div className="flex gap-4 p-4">
-      <div className="flex-1 p-4 bg-white rounded shadow border border-gray-300">
+      <div className="flex-1 p-4 bg-white rounded shadow border" style={{ borderColor: theme.border }}>
         <p className="text-sm text-gray-700">Total Balance</p>
         <p className="text-xl font-bold">${totalBalance.toFixed(2)}</p>
       </div>
-      <div className="flex-1 p-4 bg-white rounded shadow border border-gray-300">
+      <div className="flex-1 p-4 bg-white rounded shadow border" style={{ borderColor: theme.border }}>
         <p className="text-sm text-gray-700">Credit Used</p>
         <p className="text-xl font-bold text-red-600">{creditUsed.toFixed(1)}%</p>
       </div>
@@ -119,7 +117,7 @@ const BusinessCards = () => {
   );
 };
 
-// Renders a secure Add Account form as a chat widget
+// Widget for adding an account
 const AddAccountWidget = ({ onClose }) => {
   const [name, setName] = useState('');
   const [accountType, setAccountType] = useState('debit');
@@ -143,7 +141,6 @@ const AddAccountWidget = ({ onClose }) => {
     };
     const updatedAccounts = [...accounts, newAccount];
     saveData(updatedAccounts, transactions);
-    // Dispatch event to refresh dashboard data
     window.dispatchEvent(new CustomEvent('financeDataUpdated'));
     setSubmitted(true);
   };
@@ -216,7 +213,7 @@ const AddAccountWidget = ({ onClose }) => {
   );
 };
 
-// -------------------- Command Handler --------------------
+// Command handler
 const handleCommand = (trimmed) => {
   const lower = trimmed.toLowerCase();
   const { accounts, transactions } = loadData();
@@ -224,14 +221,9 @@ const handleCommand = (trimmed) => {
   if (lower === 'balance info') {
     return { component: 'BusinessCards' };
   }
-
   if (lower.startsWith('add account:')) {
-    const result = { component: 'AddAccountWidget' };
-    // Dispatch event so that dashboard updates data
-    window.dispatchEvent(new CustomEvent('financeDataUpdated'));
-    return result;
+    return { component: 'AddAccountWidget' };
   }
-
   if (lower.startsWith('add transaction:')) {
     const params = parseKeyValuePairs(trimmed.substring(16));
     if (!params.accountid || !params.amount) {
@@ -257,8 +249,8 @@ const handleCommand = (trimmed) => {
   return null;
 };
 
-// -------------------- LiveAgentChat Component --------------------
-export default function LiveAgentChat({ brandColor = theme.primary, websiteName = 'Live Chat' }) {
+// Main Chat Component
+export default function LiveAgentChat({ websiteName = 'Live Chat' }) {
   const [windowState, setWindowState] = useState('bottom'); // 'bottom' | 'expanded' | 'side'
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -266,23 +258,23 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
   const [lastActivity, setLastActivity] = useState(Date.now());
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll when new messages arrive
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-collapse after inactivity
+  // Inactivity auto-collapse
   useEffect(() => {
     const inactivityTimeout = 300000; // 5 minutes
-    const checkInactivity = () => {
+    const timer = setInterval(() => {
       if (windowState === 'expanded' && Date.now() - lastActivity > inactivityTimeout) {
         setWindowState('bottom');
       }
-    };
-    const timer = setInterval(checkInactivity, 60000);
+    }, 60000);
     return () => clearInterval(timer);
   }, [windowState, lastActivity]);
 
+  // Update lastActivity on user interactions
   const updateActivity = () => setLastActivity(Date.now());
   useEffect(() => {
     const events = ['mousedown', 'keydown', 'mousemove', 'touchstart'];
@@ -290,6 +282,33 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
     return () => events.forEach(event => document.removeEventListener(event, updateActivity));
   }, []);
 
+  // Suggestions row (one-liner)
+  const renderTagSuggestions = () => {
+    if (messages.length > 0) {
+      return (
+        <div 
+          className="flex items-center px-4" 
+          style={{ height: '24px', backgroundColor: theme.inputBackground, borderTop: `1px solid ${theme.border}` }}
+        >
+          <span className="text-xs text-gray-500 mr-2">Suggestions:</span>
+          <div className="flex gap-2">
+            {SUGGESTIONS.map((tag, index) => (
+              <button
+                key={index}
+                onClick={() => setInputValue(tag)}
+                className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs whitespace-nowrap"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Send message
   const handleSend = async () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
@@ -308,16 +327,27 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
     setMessages(prev => [...prev, agentMsg]);
   };
 
-  // Render messages; if a message has a special component flag, render that component
+  // Render each message
   const renderMessage = (msg, idx) => {
+    // If the message has an <iframe> snippet, render it as HTML
+    if (msg.text && msg.text.includes("<iframe")) {
+      return (
+        <div key={idx} className="mb-3">
+          <div className="p-3 rounded-lg" style={{ backgroundColor: theme.messageBackground, color: theme.text }}>
+            <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+          </div>
+        </div>
+      );
+    }
     if (msg.component === 'BusinessCards') {
       return <BusinessCards key={idx} />;
     }
     if (msg.component === 'AddAccountWidget') {
       return <AddAccountWidget key={idx} onClose={() => setMessages(prev => prev.filter(m => m !== msg))} />;
     }
+    // Default text message
     return (
-      <div key={idx} className="mb-3 flex flex-col">
+      <div key={idx} className="mb-3">
         <div className="flex items-start gap-2">
           <div 
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shrink-0"
@@ -325,10 +355,7 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
           >
             {msg.sender === 'user' ? 'U' : 'A'}
           </div>
-          <div 
-            className="relative p-3 rounded-lg max-w-[80%]"
-            style={{ backgroundColor: theme.messageBackground, color: theme.text }}
-          >
+          <div className="p-3 rounded-lg max-w-[80%]" style={{ backgroundColor: theme.messageBackground, color: theme.text }}>
             <div className="text-sm">{msg.text}</div>
             <div className="text-[10px] mt-1 text-gray-500">
               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -339,13 +366,14 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
     );
   };
 
+  // Container style based on windowState
   const getContainerStyles = () => {
     const baseStyles = "fixed transition-all duration-300 ease-in-out bg-white shadow-xl mx-[10%]";
     switch (windowState) {
       case 'bottom':
-        return `${baseStyles} bottom-0 left-0 right-0 border-t border-[${theme.border}]`;
+        return `${baseStyles} bottom-0 left-0 right-0 border-t`;
       case 'expanded':
-        return `${baseStyles} bottom-0 left-0 right-0 border-t border-[${theme.border}]`;
+        return `${baseStyles} bottom-0 left-0 right-0 border-t`;
       case 'side':
         return `fixed bottom-4 right-[10%] w-14 h-14 rounded-full cursor-pointer hover:shadow-2xl`;
       default:
@@ -353,6 +381,7 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
     }
   };
 
+  // If minimized to side
   if (windowState === 'side') {
     return (
       <div 
@@ -369,58 +398,32 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
 
   return (
     <div className={getContainerStyles()}>
-      <div className={`${windowState === 'expanded' ? 'h-[60vh]' : 'h-auto'} transition-all duration-300`}>
-        {/* Chat Header */}
-        <div 
-          className="relative px-3 py-2 flex justify-between items-center border-b"
-          style={{ background: theme.headerGradient, borderColor: 'rgba(255,255,255,0.1)' }}
-        >
+      {/* Grid layout: header (48px), messages area (1fr), bottom area (60px) */}
+      <div style={{ height: '60vh', display: 'grid', gridTemplateRows: '48px 1fr 60px' }}>
+        {/* Header */}
+        <div className="px-3 py-2 flex justify-between items-center border-b" style={{ background: theme.headerGradient }}>
           <div className="flex items-center gap-2">
-            <div className="relative w-7 h-7">
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-                <defs>
-                  <linearGradient id="avatarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#FEA04C" />
-                    <stop offset="50%" stopColor="#F83A95" />
-                    <stop offset="100%" stopColor="#8E47EB" />
-                  </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="48" stroke="url(#avatarGradient)" strokeWidth="4" fill="none" />
-              </svg>
-              <div className="absolute inset-0.5 rounded-full bg-white p-0.5">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-white">AI</span>
-                </div>
-              </div>
+            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
+              <span className="text-xs font-semibold" style={{ color: theme.primary }}>AI</span>
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-[13px] text-white leading-tight">{websiteName}</span>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.activeNowColor }}></div>
-                <span className="text-[11px] text-white/90">Active now</span>
-              </div>
+              <span className="font-semibold text-[13px] text-white">{websiteName}</span>
+              <span className="text-[11px] text-white/90">Active now</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <div className="relative mr-1">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="appearance-none text-[12px] font-medium focus:outline-none cursor-pointer px-2 py-1 rounded-full pr-6 transition-colors"
-                style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
-              >
-                <option value="OpenAI" className="text-black">OpenAI</option>
-                <option value="Claude" className="text-black">Claude</option>
-              </select>
-              <ChevronDown 
-                size={12} 
-                className="absolute right-2 top-1/2 transform -translate-y-1/2" 
-                style={{ color: theme.controlsHighlight }}
-              />
-            </div>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="text-[12px] font-medium px-2 py-1 rounded-full"
+              style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
+            >
+              <option value="OpenAI">OpenAI</option>
+              <option value="Claude">Claude</option>
+            </select>
             <button
               onClick={() => setWindowState(windowState === 'expanded' ? 'bottom' : 'expanded')}
-              className="p-1.5 rounded-full transition-colors"
+              className="p-1.5 rounded-full"
               style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
               aria-label={windowState === 'expanded' ? 'Minimize chat' : 'Maximize chat'}
             >
@@ -428,7 +431,7 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
             </button>
             <button
               onClick={() => setWindowState('side')}
-              className="p-1.5 rounded-full transition-colors"
+              className="p-1.5 rounded-full"
               style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
               aria-label="Minimize to side"
             >
@@ -437,18 +440,19 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
           </div>
         </div>
 
-        {/* Messages Area */}
-        {windowState === 'expanded' && (
-          <div className="p-4 overflow-y-auto" style={{ height: 'calc(60vh - 130px)', backgroundColor: theme.background }}>
-            {messages.map((msg, idx) => renderMessage(msg, idx))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+        {/* Messages Area (scrollable) */}
+        <div className="overflow-y-auto p-4" style={{ backgroundColor: theme.background }}>
+          {messages.map((msg, idx) => renderMessage(msg, idx))}
+          <div ref={messagesEndRef} />
+        </div>
 
-        {/* Input Area */}
-        <div className="px-4 py-3 bg-white border-t" style={{ borderColor: theme.border }}>
-          <div className="max-w-6xl mx-auto flex items-end">
-            <div className="flex-1 relative">
+        {/* Bottom Area: 60px total, flex-col for suggestions row + input row */}
+        <div style={{ backgroundColor: theme.inputBackground, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column' }}>
+          {/* Suggestions row (24px) */}
+          {renderTagSuggestions()}
+          {/* Input row (36px) */}
+          <div className="flex-none px-4" style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+            <div className="relative w-full h-full">
               <input
                 type="text"
                 placeholder="Message..."
@@ -460,14 +464,14 @@ export default function LiveAgentChat({ brandColor = theme.primary, websiteName 
                     handleSend();
                   }
                 }}
-                className="w-full pl-3 pr-12 py-2.5 text-sm border rounded-full focus:outline-none focus:border-gray-300"
+                className="w-full pl-3 pr-12 text-sm border rounded-full focus:outline-none h-full"
                 style={{ backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }}
               />
               <button
                 onClick={handleSend}
                 disabled={!inputValue.trim()}
-                className="absolute right-3 bottom-1/2 transform translate-y-1/2 p-1.5 rounded-full focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-                style={{ color: theme.text }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full focus:outline-none transition-colors disabled:opacity-50"
+                style={{ backgroundColor: theme.primary, color: '#fff' }}
               >
                 <Send size={16} />
               </button>
