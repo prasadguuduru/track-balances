@@ -26,54 +26,69 @@ const theme = {
   iconHover: '#F0F6FF'
 };
 
-// Simulated API call for normal responses
+// Namespaced keys (should match your dashboard)
+const ACCOUNTS_KEY = "myapp_finance_accounts";
+const TRANSACTIONS_KEY = "myapp_finance_transactions";
+
+// Ensure keys are initialized if missing
+const initializeStorage = () => {
+  if (!localStorage.getItem(ACCOUNTS_KEY)) {
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(TRANSACTIONS_KEY)) {
+    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
+  }
+};
+initializeStorage();
+
+// -------------------- Simulated API Call --------------------
 const getChatResponse = async (userMessage, model) => {
   await new Promise(resolve => setTimeout(resolve, 1000));
   return `${model} response: ${userMessage}`;
 };
 
-// --- Business Logic (from EnhancedFinanceManager) ---
-// Load accounts and transactions from localStorage
+// -------------------- Business Logic Functions --------------------
 const loadData = () => {
-  const storedAccounts = localStorage.getItem('finance_accounts');
-  const storedTransactions = localStorage.getItem('finance_transactions');
+  const storedAccounts = localStorage.getItem(ACCOUNTS_KEY);
+  const storedTransactions = localStorage.getItem(TRANSACTIONS_KEY);
   const accounts = storedAccounts ? JSON.parse(storedAccounts) : [];
   const transactions = storedTransactions ? JSON.parse(storedTransactions) : [];
   return { accounts, transactions };
 };
 
-// Save data to localStorage
 const saveData = (accounts, transactions) => {
-  localStorage.setItem('finance_accounts', JSON.stringify(accounts));
-  localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
 };
 
-const monthsDifference = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-};
-
-// Calculate balance for an account (simplified, without APR compounding for brevity)
 const calculateBalance = (account, transactions, date = new Date()) => {
-  const relevant = transactions.filter(t => t.accountId === account.id && new Date(t.date) <= date);
-  return relevant.reduce((sum, t) => sum + (t.type === 'credit' ? Number(t.amount) : -Number(t.amount)), 0);
+  const relevant = transactions.filter(
+    t => t.accountId === account.id && new Date(t.date) <= date
+  );
+  return relevant.reduce(
+    (sum, t) => sum + (t.type === 'credit' ? Number(t.amount) : -Number(t.amount)),
+    0
+  );
 };
 
-// Calculate Total Balance and Credit Used
 const getBusinessMetrics = () => {
   const { accounts, transactions } = loadData();
-  const totalBalance = accounts.reduce((sum, account) => sum + calculateBalance(account, transactions), 0);
+  const totalBalance = accounts.reduce(
+    (sum, account) => sum + calculateBalance(account, transactions),
+    0
+  );
   const creditAccounts = accounts.filter(a => a.accountType === 'credit');
   const totalLimit = creditAccounts.reduce((sum, a) => sum + Number(a.limit || 0), 0);
-  const totalUsed = creditAccounts.reduce((sum, account) => sum + Math.max(0, calculateBalance(account, transactions)), 0);
+  const totalUsed = creditAccounts.reduce(
+    (sum, account) => sum + Math.max(0, calculateBalance(account, transactions)),
+    0
+  );
   const creditUsed = totalLimit ? (totalUsed / totalLimit) * 100 : 0;
   return { totalBalance, creditUsed };
 };
 
-// Helper to parse key-value pairs from command text
+// -------------------- Helper: Parse Key-Value Pairs --------------------
 const parseKeyValuePairs = (text) => {
-  // Split on commas or semicolons, then on '='
   const pairs = text.split(/[,;]/).map(part => part.trim());
   const obj = {};
   pairs.forEach(pair => {
@@ -85,43 +100,142 @@ const parseKeyValuePairs = (text) => {
   return obj;
 };
 
-// Command handler for chat commands
+// -------------------- Secure Component Rendering --------------------
+
+// Renders Total Balance and Credit Used cards
+const BusinessCards = () => {
+  const { totalBalance, creditUsed } = getBusinessMetrics();
+  return (
+    <div className="flex gap-4 p-4">
+      <div className="flex-1 p-4 bg-white rounded shadow border border-gray-300">
+        <p className="text-sm text-gray-700">Total Balance</p>
+        <p className="text-xl font-bold">${totalBalance.toFixed(2)}</p>
+      </div>
+      <div className="flex-1 p-4 bg-white rounded shadow border border-gray-300">
+        <p className="text-sm text-gray-700">Credit Used</p>
+        <p className="text-xl font-bold text-red-600">{creditUsed.toFixed(1)}%</p>
+      </div>
+    </div>
+  );
+};
+
+// Renders a secure Add Account form as a chat widget
+const AddAccountWidget = ({ onClose }) => {
+  const [name, setName] = useState('');
+  const [accountType, setAccountType] = useState('debit');
+  const [limit, setLimit] = useState('');
+  const [apr, setApr] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name || !accountType) {
+      alert('Please provide at least a name and account type.');
+      return;
+    }
+    const { accounts, transactions } = loadData();
+    const newAccount = {
+      id: Date.now().toString(),
+      name,
+      accountType,
+      limit: accountType === 'credit' ? Number(limit) || 0 : 0,
+      apr: accountType === 'credit' ? Number(apr) || 0 : 0,
+    };
+    const updatedAccounts = [...accounts, newAccount];
+    saveData(updatedAccounts, transactions);
+    // Dispatch event to refresh dashboard data
+    window.dispatchEvent(new CustomEvent('financeDataUpdated'));
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div className="p-4">
+        <p className="text-sm text-green-700">Account added successfully!</p>
+        <button onClick={onClose} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded">
+          Close
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="block text-sm text-gray-700">Account Name</label>
+          <input 
+            type="text" 
+            value={name} 
+            onChange={(e) => setName(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700">Account Type</label>
+          <select 
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="debit">Debit Account</option>
+            <option value="credit">Credit Card</option>
+          </select>
+        </div>
+        {accountType === 'credit' && (
+          <>
+            <div>
+              <label className="block text-sm text-gray-700">Credit Limit</label>
+              <input 
+                type="number" 
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700">APR (%)</label>
+              <input 
+                type="number" 
+                value={apr}
+                onChange={(e) => setApr(e.target.value)}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          </>
+        )}
+        <button 
+          type="submit" 
+          className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Save Account
+        </button>
+      </form>
+    </div>
+  );
+};
+
+// -------------------- Command Handler --------------------
 const handleCommand = (trimmed) => {
   const lower = trimmed.toLowerCase();
   const { accounts, transactions } = loadData();
 
-  // "balance info" command
-  if (lower.startsWith('balance info')) {
-    const metrics = getBusinessMetrics();
-    return `Total Balance: $${metrics.totalBalance.toFixed(2)}\nCredit Used: ${metrics.creditUsed.toFixed(1)}%`;
+  if (lower === 'balance info') {
+    return { component: 'BusinessCards' };
   }
 
-  // "add account:" command
   if (lower.startsWith('add account:')) {
-    // Expected format: "add account: name=My Account, type=credit, limit=5000, apr=15"
-    const params = parseKeyValuePairs(trimmed.substring(12));
-    if (!params.name || !params.type) {
-      return 'Error: Please provide at least "name" and "type" for account.';
-    }
-    const newAccount = {
-      id: Date.now().toString(),
-      name: params.name,
-      accountType: params.type,
-      limit: params.limit ? Number(params.limit) : 0,
-      apr: params.apr ? Number(params.apr) : 0,
-    };
-    const updatedAccounts = [...accounts, newAccount];
-    saveData(updatedAccounts, transactions);
-    const metrics = getBusinessMetrics();
-    return `Account added.\nTotal Balance: $${metrics.totalBalance.toFixed(2)}\nCredit Used: ${metrics.creditUsed.toFixed(1)}%`;
+    const result = { component: 'AddAccountWidget' };
+    // Dispatch event so that dashboard updates data
+    window.dispatchEvent(new CustomEvent('financeDataUpdated'));
+    return result;
   }
 
-  // "add transaction:" command
   if (lower.startsWith('add transaction:')) {
-    // Expected format: "add transaction: accountId=1623456789012, amount=200, type=debit, category=Food, details=Lunch"
     const params = parseKeyValuePairs(trimmed.substring(16));
     if (!params.accountid || !params.amount) {
-      return 'Error: Please provide at least "accountId" and "amount" for transaction.';
+      return { text: 'Error: Please provide at least "accountId" and "amount" for transaction.' };
     }
     const newTransaction = {
       id: Date.now().toString(),
@@ -134,29 +248,32 @@ const handleCommand = (trimmed) => {
     };
     const updatedTransactions = [...transactions, newTransaction];
     saveData(accounts, updatedTransactions);
+    window.dispatchEvent(new CustomEvent('financeDataUpdated'));
     const metrics = getBusinessMetrics();
-    return `Transaction added.\nTotal Balance: $${metrics.totalBalance.toFixed(2)}\nCredit Used: ${metrics.creditUsed.toFixed(1)}%`;
+    return {
+      text: `Transaction added.\nTotal Balance: $${metrics.totalBalance.toFixed(2)}\nCredit Used: ${metrics.creditUsed.toFixed(1)}%`
+    };
   }
-
   return null;
 };
 
-const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }) => {
+// -------------------- LiveAgentChat Component --------------------
+export default function LiveAgentChat({ brandColor = theme.primary, websiteName = 'Live Chat' }) {
   const [windowState, setWindowState] = useState('bottom'); // 'bottom' | 'expanded' | 'side'
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [selectedModel, setSelectedModel] = useState('OpenAI');
   const [lastActivity, setLastActivity] = useState(Date.now());
   const messagesEndRef = useRef(null);
-  const inactivityTimeout = 300000; // 5 minutes
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Auto-collapse after inactivity
   useEffect(() => {
+    const inactivityTimeout = 300000; // 5 minutes
     const checkInactivity = () => {
       if (windowState === 'expanded' && Date.now() - lastActivity > inactivityTimeout) {
         setWindowState('bottom');
@@ -176,25 +293,50 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
   const handleSend = async () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
-
     if (windowState !== 'expanded') setWindowState('expanded');
-
     const userMsg = { text: trimmed, sender: 'user', timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInputValue('');
-
-    // Check for command responses
-    const commandResponse = handleCommand(trimmed);
-    if (commandResponse !== null) {
-      const agentMsg = { text: commandResponse, sender: 'agent', timestamp: new Date() };
+    const commandResult = handleCommand(trimmed);
+    if (commandResult !== null) {
+      const agentMsg = { ...commandResult, sender: 'agent', timestamp: new Date() };
       setMessages(prev => [...prev, agentMsg]);
       return;
     }
-
-    // Otherwise, use normal chat response
     const response = await getChatResponse(trimmed, selectedModel);
     const agentMsg = { text: response, sender: 'agent', timestamp: new Date() };
     setMessages(prev => [...prev, agentMsg]);
+  };
+
+  // Render messages; if a message has a special component flag, render that component
+  const renderMessage = (msg, idx) => {
+    if (msg.component === 'BusinessCards') {
+      return <BusinessCards key={idx} />;
+    }
+    if (msg.component === 'AddAccountWidget') {
+      return <AddAccountWidget key={idx} onClose={() => setMessages(prev => prev.filter(m => m !== msg))} />;
+    }
+    return (
+      <div key={idx} className="mb-3 flex flex-col">
+        <div className="flex items-start gap-2">
+          <div 
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shrink-0"
+            style={{ backgroundColor: msg.sender === 'user' ? '#5E5E5E' : theme.primary }}
+          >
+            {msg.sender === 'user' ? 'U' : 'A'}
+          </div>
+          <div 
+            className="relative p-3 rounded-lg max-w-[80%]"
+            style={{ backgroundColor: theme.messageBackground, color: theme.text }}
+          >
+            <div className="text-sm">{msg.text}</div>
+            <div className="text-[10px] mt-1 text-gray-500">
+              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const getContainerStyles = () => {
@@ -231,10 +373,7 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
         {/* Chat Header */}
         <div 
           className="relative px-3 py-2 flex justify-between items-center border-b"
-          style={{ 
-            background: theme.headerGradient,
-            borderColor: 'rgba(255,255,255,0.1)'
-          }}
+          style={{ background: theme.headerGradient, borderColor: 'rgba(255,255,255,0.1)' }}
         >
           <div className="flex items-center gap-2">
             <div className="relative w-7 h-7">
@@ -268,10 +407,7 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="appearance-none text-[12px] font-medium focus:outline-none cursor-pointer px-2 py-1 rounded-full pr-6 transition-colors"
-                style={{
-                  backgroundColor: theme.controlsBackground,
-                  color: theme.controlsHighlight
-                }}
+                style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
               >
                 <option value="OpenAI" className="text-black">OpenAI</option>
                 <option value="Claude" className="text-black">Claude</option>
@@ -285,10 +421,7 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
             <button
               onClick={() => setWindowState(windowState === 'expanded' ? 'bottom' : 'expanded')}
               className="p-1.5 rounded-full transition-colors"
-              style={{ 
-                backgroundColor: theme.controlsBackground,
-                color: theme.controlsHighlight
-              }}
+              style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
               aria-label={windowState === 'expanded' ? 'Minimize chat' : 'Maximize chat'}
             >
               {windowState === 'expanded' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -296,10 +429,7 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
             <button
               onClick={() => setWindowState('side')}
               className="p-1.5 rounded-full transition-colors"
-              style={{ 
-                backgroundColor: theme.controlsBackground,
-                color: theme.controlsHighlight
-              }}
+              style={{ backgroundColor: theme.controlsBackground, color: theme.controlsHighlight }}
               aria-label="Minimize to side"
             >
               <ChevronRight size={16} />
@@ -309,81 +439,42 @@ const LiveAgentChat = ({ brandColor = theme.primary, websiteName = 'Live Chat' }
 
         {/* Messages Area */}
         {windowState === 'expanded' && (
-          <div 
-            className="p-4" 
-            style={{ 
-              height: 'calc(60vh - 130px)',
-              backgroundColor: theme.background 
-            }}
-          >
-            {messages.map((msg, idx) => (
-              <div key={idx} className="mb-3 flex flex-col">
-                <div className="flex items-start gap-2">
-                  <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm shrink-0"
-                    style={{ 
-                      backgroundColor: msg.sender === 'user' ? '#5E5E5E' : theme.primary 
-                    }}
-                  >
-                    {msg.sender === 'user' ? 'U' : 'A'}
-                  </div>
-                  <div 
-                    className="relative p-3 rounded-lg max-w-[80%]"
-                    style={{ 
-                      backgroundColor: theme.messageBackground,
-                      color: theme.text
-                    }}
-                  >
-                    <div className="text-sm">{msg.text}</div>
-                    <div className="text-[10px] mt-1 text-gray-500">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="p-4 overflow-y-auto" style={{ height: 'calc(60vh - 130px)', backgroundColor: theme.background }}>
+            {messages.map((msg, idx) => renderMessage(msg, idx))}
             <div ref={messagesEndRef} />
           </div>
         )}
 
         {/* Input Area */}
         <div className="px-4 py-3 bg-white border-t" style={{ borderColor: theme.border }}>
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-end">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Message..."
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  className="w-full pl-3 pr-12 py-2.5 text-sm border rounded-full focus:outline-none focus:border-gray-300"
-                  style={{ 
-                    backgroundColor: theme.inputBackground,
-                    borderColor: theme.border,
-                    color: theme.text
-                  }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim()}
-                  className="absolute right-3 bottom-1/2 transform translate-y-1/2 p-1.5 rounded-full focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-                  style={{ color: theme.text }}
-                >
-                  <Send size={16} />
-                </button>
-              </div>
+          <div className="max-w-6xl mx-auto flex items-end">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Message..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                className="w-full pl-3 pr-12 py-2.5 text-sm border rounded-full focus:outline-none focus:border-gray-300"
+                style={{ backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim()}
+                className="absolute right-3 bottom-1/2 transform translate-y-1/2 p-1.5 rounded-full focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                style={{ color: theme.text }}
+              >
+                <Send size={16} />
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default LiveAgentChat;
+}
